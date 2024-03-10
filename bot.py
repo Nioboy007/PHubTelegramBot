@@ -191,38 +191,43 @@ async def options(client, message : Message):
             )
 
 
+# Define the path to the downloads directory
+downloads_dir = os.path.join(os.getcwd(), "downloads")
+
+# Create the downloads directory if it doesn't exist
+os.makedirs(downloads_dir, exist_ok=True)
+
+# Define the callback function
 @app.on_callback_query(filters.regex("^d"))
-async def download_video(client, callback : CallbackQuery):
-    url = callback.data.split("_",1)[1]
+async def download_video(client, callback: CallbackQuery):
+    url = callback.data.split("_", 1)[1]
     msg = await callback.message.edit("Downloading.........🥵")
     user_id = callback.message.from_user.id
 
-    if "isjwhs" in active_list:
-        await callback.message.edit("Sorry, you can only download videos at a time!🙁")
+    if user_id in active_list:
+        await callback.message.edit("Sorry, you can only download one video at a time!🙁")
         return
     else:
         active_list.append(user_id)
 
     ydl_opts = {
-            "progress_hooks": [lambda d: download_progress_hook(d, callback.message, client)]
-        }
+        "progress_hooks": [lambda d: download_progress_hook(d, callback.message, client)],
+        "outtmpl": os.path.join(downloads_dir, "%(title)s.%(ext)s")
+    }
 
     with youtube_dl.YoutubeDL(ydl_opts) as ydl:
         try:
             await run_async(ydl.download, [url])
-        except DownloadError:
+        except youtube_dl.DownloadError:
             await callback.message.edit("Sorry, something went wrong...")
             return
 
-
-    for file in os.listdir('.'):
+    for file in os.listdir(downloads_dir):
         if file.endswith(".mp4"):
-            await callback.message.reply_video(f"{file}", caption="**This is the video you asked**\n\nBot by:- @botio_devs.",
-                                reply_markup=InlineKeyboardMarkup([[btn1, btn2]]))
-            os.remove(f"{file}")
+            await callback.message.reply_video(os.path.join(downloads_dir, file), caption="**This is the video you asked**\n\nBot by:- @botio_devs.",
+                                                reply_markup=InlineKeyboardMarkup([[btn1, btn2]]))
+            os.remove(os.path.join(downloads_dir, file))
             break
-        else:
-            continue
 
     await msg.delete()
     active_list.remove(user_id)
